@@ -4,23 +4,35 @@ pragma solidity ^0.8.19;
 
 import {PriceConverter} from "./PriceConverter.sol";
 
+error NotOwner();
 
+// 774,268 gas
+// 753,907 gas after constant
+// 730724 after immutable
 contract FundMe {
     using PriceConverter for uint256;
 
-    uint256 public minimumUsd = 5e18;
+    uint256 public constant MINIMUM_USD = 5e18; // 347 gas
     address[] public funders;
     mapping(address funder => uint256 amountFunded) public addressToAmountFunded;
 
-    address public owner;
+    address public immutable i_owner;
 
     constructor() {
-        owner = msg.sender;
+        i_owner = msg.sender;
+    }
+
+    receive() external payable {
+        fund();
+    }
+
+    fallback() external payable {
+        fund();
     }
 
     function fund() public payable {
         msg.value.getConversionRate();
-        require(msg.value.getConversionRate() >= minimumUsd, "Not enough ETH");
+        require(msg.value.getConversionRate() >= MINIMUM_USD, "Not enough ETH");
         funders.push(msg.sender);
         addressToAmountFunded[msg.sender] += msg.value;
     }
@@ -46,7 +58,10 @@ contract FundMe {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Sender is not owner!");
+        // require(msg.sender == i_owner, "Sender is not owner!");
+        if(msg.sender != i_owner) {
+            revert NotOwner();
+        }
         _;
     }
 }
